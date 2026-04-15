@@ -1,7 +1,7 @@
 # MYKAKU
 Repository for Programming 2 Finals Project
 
-Programmer: Yalung, Kurt Michael D.
+Programmer: Kavin Karl C. Molos.
 Course: BSIT-GD 1st yr
 
 
