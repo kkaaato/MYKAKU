@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shuffling Memory Match</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        #gameContainer {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        #menuScreen, #gameScreen, #gameOverScreen {
+            text-align: center;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            border: none;
+            color: white;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 30px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .player-btn {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            padding: 20px 50px;
+            font-size: 24px;
+        }
+
+        #canvas {
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            cursor: pointer;
+            background: #2c3e50;
+        }
+
+        #scoreBoard {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .player-score {
+            background: rgba(255,255,255,0.2);
+            padding: 15px 25px;
+            border-radius: 15px;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .player-score.active {
+            background: rgba(255,215,0,0.4);
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(255,215,0,0.5);
+        }
+
+        .player-score.winner {
+            background: rgba(0,255,0,0.4);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        #message {
+            margin-top: 20px;
+            font-size: 20px;
+            min-height: 30px;
+            color: #ffd700;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .hidden { display: none; }
+
+        #instructions {
+            max-width: 600px;
+            margin: 20px auto;
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            line-height: 1.6;
+        }
+
+        #instructions h3 {
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+
+        #instructions ul {
+            text-align: left;
+            margin-left: 20px;
+        }
+
+        #instructions li {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎴 Shuffling Memory Match</h1>
+
+    <div id="gameContainer">
+        <!-- Main Menu -->
+        <div id="menuScreen">
+            <h2>Select Number of Players</h2>
+            <div style="margin-top: 30px;">
+                <button class="btn player-btn" onclick="startGame(2)">2 Players</button>
+                <button class="btn player-btn" onclick="startGame(3)">3 Players</button>
+                <button class="btn player-btn" onclick="startGame(4)">4 Players</button>
+            </div>
+            
+            <div id="instructions">
+                <h3>How to Play:</h3>
+                <ul>
+                    <li>Click cards to flip them and find matching color pairs</li>
+                    <li><strong>The Twist:</strong> After each failed guess, cards from the last 2 guesses shuffle positions!</li>
+                    <li>Only the 4 cards from the last 2 guesses will move</li>
+                    <li>Matched pairs disappear from the board</li>
+                    <li>Keep track of the last 4 cards that moved!</li>
+                    <li>Player with most matches wins!</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="gameScreen" class="hidden">
+            <div id="scoreBoard"></div>
+            <canvas id="canvas" width="800" height="600"></canvas>
+            <div id="message"></div>
+            <button class="btn" onclick="returnToMenu()" style="margin-top: 20px;">Back to Menu</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="hidden">
+            <h2 id="winnerText"></h2>
+            <div id="finalScores"></div>
+            <button class="btn" onclick="returnToMenu()" style="margin-top: 30px;">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game Configuration
+        const COLS = 6;
+        const ROWS = 4;
+        const CARD_WIDTH = 120;
+        const CARD_HEIGHT = 140;
+        const CARD_MARGIN = 20;
+        const FLIP_DURATION = 300;
+        const SHUFFLE_DURATION = 800;
+        const REMOVE_DURATION = 500;
+        
+        // Colors and styles
+        const CARD_BACK_COLOR = '#3498db';
+        const CARD_BORDER_COLOR = '#2980b9';
+        
+        // Color pairs for the cards
+        const CARD_COLORS = [
+            '#E74C3C', // Red
+            '#3498DB', // Blue
+            '#F39C12', // Orange
+            '#9B59B6', // Purple
+            '#1ABC9C', // Teal
+            '#E91E63', // Pink
+            '#00BCD4', // Cyan
+            '#8BC34A', // Green
+            '#FF5722', // Deep Orange
+            '#673AB7', // Deep Purple
+            '#009688', // Teal Green
+            '#FF9800'  // Amber
+        ];
+        
+        // Game State
+        let cards = [];
+        let players = [];
+        let currentPlayer = 0;
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let totalPairs = 0;
+        let isAnimating = false;
+        let guessHistory = [];
+        let gameActive = false;
+
+        // Card class
+        class Card {
+            constructor(id, value, x, y) {
+                this.id = id;
+                this.value = value;
+                this.x = x;
+                this.y = y;
+                this.targetX = x;
+                this.targetY = y;
+                this.isFlipped = false;
+                this.isMatched = false;
+                this.isRemoved = false;
+                this.flipProgress = 0;
+                this.isFlipping = false;
+                this.flipDirection = 1; // 1 = flip up, -1 = flip back
+                this.removeProgress = 0;
+                this.isRemoving = false;
+                this.shuffleProgress = 0;
+                this.isShuffling = false;
+                this.startX = x;
+                this.startY = y;
+            }
+
+            draw() {
+                if (this.isRemoved) return;
+                
+                ctx.save();
+                
+                let scaleX = 1;
+                let showingFront = this.isFlipped;
+                
+                if (this.isFlipping) {
+                    const progress = this.flipProgress / FLIP_DURATION;
+                    if (progress < 0.5) {
+                        scaleX = 1 - (progress * 2);
+                    } else {
+                        scaleX = (progress - 0.5) * 2;
+                    }
+                    
+                    const firstHalf = progress < 0.5;
+                    if (this.flipDirection === 1) {
+                        showingFront = !firstHalf;
+                    } else {
+                        showingFront = firstHalf;
+                    }
+                }
+
+                // Removal animation
+                let alpha = 1;
+                let scaleRemove = 1;
+                if (this.isRemoving) {
+                    const progress = this.removeProgress / REMOVE_DURATION;
+                    alpha = 1 - progress;
+                    scaleRemove = 1 - (progress * 0.5);
+                }
+
+                ctx.globalAlpha = alpha;
+                
+                // Handle shuffle animation
+                let drawX = this.x;
+                let drawY = this.y;
+                if (this.isShuffling) {
+                    const progress = this.shuffleProgress / SHUFFLE_DURATION;
+                    const ease = t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                    const eased = ease(progress);
+                    drawX = this.startX + (this.targetX - this.startX) * eased;
+                    drawY = this.startY + (this.targetY - this.startY) * eased;
+                }
+
+                ctx.translate(drawX + CARD_WIDTH/2, drawY + CARD_HEIGHT/2);
+                ctx.scale(scaleX * scaleRemove, scaleRemove);
+
+                if (showingFront) {
+                    this.drawCardFront();
+                } else {
+                    this.drawCardBack();
+                }
+
+                ctx.restore();
+            }
+
+            drawCardBack() {
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(-CARD_WIDTH/2 + 5, -CARD_HEIGHT/2 + 5, CARD_WIDTH, CARD_HEIGHT);
+                
+                const gradient = ctx.createLinearGradient(-CARD_WIDTH/2, -CARD_HEIGHT/2, CARD_WIDTH/2, CARD_HEIGHT/2);
+                gradient.addColorStop(0, CARD_BACK_COLOR);
+                gradient.addColorStop(1, '#2980b9');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(-CARD_WIDTH/2, -CARD_HEIGHT/2, CARD_WIDTH, CARD_HEIGHT);
+                
+                ctx.strokeStyle = CARD_BORDER_COLOR;
+                ctx.lineWidth = 3;
+                ctx.strokeRect(-CARD_WIDTH/2, -CARD_HEIGHT/2, CARD_WIDTH, CARD_HEIGHT);
+                
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.beginPath();
+                ctx.arc(0, 0, 30, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.font = 'bold 30px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('?', 0, 0);
+            }
+
+            drawCardFront() {
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(-CARD_WIDTH/2 + 5, -CARD_HEIGHT/2 + 5, CARD_WIDTH, CARD_HEIGHT);
+                
+                const gradient = ctx.createLinearGradient(-CARD_WIDTH/2, -CARD_HEIGHT/2, CARD_WIDTH/2, CARD_HEIGHT/2);
+                gradient.addColorStop(0, '#ecf0f1');
+                gradient.addColorStop(1, '#bdc3c7');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(-CARD_WIDTH/2, -CARD_HEIGHT/2, CARD_WIDTH, CARD_HEIGHT);
+                
+                ctx.strokeStyle = '#95a5a6';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(-CARD_WIDTH/2, -CARD_HEIGHT/2, CARD_WIDTH, CARD_HEIGHT);
+                
+                // Draw color circle
+                ctx.fillStyle = this.value;
+                ctx.beginPath();
+                ctx.arc(0, 0, 35, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            contains(mx, my) {
+                if (this.isRemoved || this.isRemoving || this.isMatched) return false;
+                return mx >= this.x && mx <= this.x + CARD_WIDTH &&
+                       my >= this.y && my <= this.y + CARD_HEIGHT;
+            }
+
+            flip() {
+                if (this.isFlipped || this.isMatched || this.isFlipping || this.isRemoving) return false;
+                this.isFlipping = true;
+                this.flipProgress = 0;
+                this.flipDirection = 1;
+                return true;
+            }
+
+            flipBack() {
+                if (!this.isFlipped || this.isFlipping || this.isRemoving) return;
+                this.isFlipping = true;
+                this.flipProgress = 0;
+                this.flipDirection = -1;
+            }
+
+            startRemove() {
+                this.isRemoving = true;
+                this.removeProgress = 0;
+            }
+
+            update(deltaTime) {
+                if (this.isFlipping) {
+                    this.flipProgress += deltaTime;
+                    if (this.flipProgress >= FLIP_DURATION) {
+                        this.isFlipping = false;
+                        if (this.flipDirection === 1) {
+                            this.isFlipped = true;
+                        } else {
+                            this.isFlipped = false;
+                        }
+                        this.flipProgress = 0;
+                        this.flipDirection = 1;
+                    }
+                }
+
+                if (this.isRemoving) {
+                    this.removeProgress += deltaTime;
+                    if (this.removeProgress >= REMOVE_DURATION) {
+                        this.isRemoving = false;
+                        this.isRemoved = true;
+                    }
+                }
+
+                if (this.isShuffling) {
+                    this.shuffleProgress += deltaTime;
+                    if (this.shuffleProgress >= SHUFFLE_DURATION) {
+                        this.isShuffling = false;
+                        this.x = this.targetX;
+                        this.y = this.targetY;
+                        this.shuffleProgress = 0;
+                    }
+                }
+            }
+
+            startShuffle(newX, newY) {
+                this.startX = this.x;
+                this.startY = this.y;
+                this.targetX = newX;
+                this.targetY = newY;
+                this.isShuffling = true;
+                this.shuffleProgress = 0;
+            }
+        }
+
+        // Player class
+        class Player {
+            constructor(id, name) {
+                this.id = id;
+                this.name = name;
+                this.score = 0;
+                this.color = this.getColor();
+            }
+
+            getColor() {
+                const colors = ['#e74c3c', '#3498db', '#f39c12', '#9b59b6'];
+                return colors[this.id % colors.length];
+            }
+        }
+
+        function initGame(numPlayers) {
+            players = [];
+            for (let i = 0; i < numPlayers; i++) {
+                players.push(new Player(i, `Player ${i + 1}`));
+            }
+            currentPlayer = 0;
+            matchedPairs = 0;
+            guessHistory = [];
+            flippedCards = [];
+            gameActive = true;
+
+            cards = [];
+            const values = [];
+            totalPairs = (COLS * ROWS) / 2;
+            
+            for (let i = 0; i < totalPairs; i++) {
+                values.push(CARD_COLORS[i], CARD_COLORS[i]);
+            }
+            
+            for (let i = values.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [values[i], values[j]] = [values[j], values[i]];
+            }
+
+            const totalWidth = COLS * CARD_WIDTH + (COLS - 1) * CARD_MARGIN;
+            const totalHeight = ROWS * CARD_HEIGHT + (ROWS - 1) * CARD_MARGIN;
+            const startX = (canvas.width - totalWidth) / 2;
+            const startY = (canvas.height - totalHeight) / 2;
+
+            let id = 0;
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const x = startX + col * (CARD_WIDTH + CARD_MARGIN);
+                    const y = startY + row * (CARD_HEIGHT + CARD_MARGIN);
+                    cards.push(new Card(id++, values.pop(), x, y));
+                }
+            }
+
+            updateScoreBoard();
+            showMessage(`${players[currentPlayer].name}'s turn!`);
+        }
+
+        function updateScoreBoard() {
+            const board = document.getElementById('scoreBoard');
+            board.innerHTML = '';
+            players.forEach((player, index) => {
+                const div = document.createElement('div');
+                div.className = 'player-score';
+                if (index === currentPlayer && gameActive) div.classList.add('active');
+                div.style.borderLeft = `5px solid ${player.color}`;
+                div.innerHTML = `
+                    <strong style="color: ${player.color}">${player.name}</strong><br>
+                    Pairs: ${player.score}
+                `;
+                board.appendChild(div);
+            });
+        }
+
+        function showMessage(text) {
+            document.getElementById('message').textContent = text;
+        }
+
+        function getLastTwoGuessesCards() {
+            const recentGuesses = guessHistory.slice(-2);
+            let cardIds = [];
+            recentGuesses.forEach(guess => {
+                cardIds = cardIds.concat(guess);
+            });
+            cardIds = [...new Set(cardIds)];
+            
+            return cardIds
+                .map(id => cards.find(c => c.id === id))
+                .filter(card => card && !card.isMatched && !card.isRemoved);
+        }
+
+        function shuffleLastTwoGuesses() {
+            const cardsToShuffle = getLastTwoGuessesCards();
+            if (cardsToShuffle.length < 2) return;
+
+            const positions = cardsToShuffle.map(c => ({ x: c.x, y: c.y }));
+            
+            for (let i = positions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [positions[i], positions[j]] = [positions[j], positions[i]];
+            }
+
+            cardsToShuffle.forEach((card, index) => {
+                card.startShuffle(positions[index].x, positions[index].y);
+            });
+
+            isAnimating = true;
+            setTimeout(() => {
+                isAnimating = false;
+            }, SHUFFLE_DURATION);
+        }
+
+        function handleCardClick(card) {
+            if (!gameActive || isAnimating || flippedCards.length >= 2) return;
+            if (!card.flip()) return;
+
+            flippedCards.push(card);
+
+            if (flippedCards.length === 2) {
+                guessHistory.push(flippedCards.map(c => c.id));
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            isAnimating = true;
+            const [card1, card2] = flippedCards;
+
+            setTimeout(() => {
+                if (card1.value === card2.value) {
+                    card1.isMatched = true;
+                    card2.isMatched = true;
+                    players[currentPlayer].score++;
+                    matchedPairs++;
+                    
+                    showMessage(`Match found! ${players[currentPlayer].name} gets a point!`);
+                    
+                    card1.startRemove();
+                    card2.startRemove();
+
+                    if (matchedPairs === totalPairs) {
+                        setTimeout(() => {
+                            endGame();
+                        }, REMOVE_DURATION + 500);
+                    } else {
+                        setTimeout(() => {
+                            flippedCards = [];
+                            isAnimating = false;
+                            updateScoreBoard();
+                            showMessage(`${players[currentPlayer].name}'s turn continues!`);
+                        }, REMOVE_DURATION + 200);
+                    }
+                } else {
+                    showMessage("No match! Last 2 guesses will shuffle...");
+                    
+                    setTimeout(() => {
+                        card1.flipBack();
+                        card2.flipBack();
+                        
+                        setTimeout(() => {
+                            shuffleLastTwoGuesses();
+                            
+                            setTimeout(() => {
+                                flippedCards = [];
+                                nextPlayer();
+                            }, SHUFFLE_DURATION + 200);
+                        }, FLIP_DURATION + 100);
+                    }, 1000);
+                }
+            }, FLIP_DURATION + 200);
+        }
+
+        function nextPlayer() {
+            currentPlayer = (currentPlayer + 1) % players.length;
+            isAnimating = false;
+            updateScoreBoard();
+            showMessage(`${players[currentPlayer].name}'s turn!`);
+        }
+
+        function endGame() {
+            gameActive = false;
+            
+            const maxScore = Math.max(...players.map(p => p.score));
+            const winners = players.filter(p => p.score === maxScore);
+            
+            setTimeout(() => {
+                document.getElementById('gameScreen').classList.add('hidden');
+                document.getElementById('gameOverScreen').classList.remove('hidden');
+                
+                const winnerText = document.getElementById('winnerText');
+                if (winners.length === 1) {
+                    winnerText.innerHTML = `🏆 ${winners[0].name} Wins! 🏆`;
+                    winnerText.style.color = winners[0].color;
+                } else {
+                    winnerText.innerHTML = `🤝 It's a Tie! 🤝`;
+                    winnerText.style.color = '#ffd700';
+                }
+
+                const scoresDiv = document.getElementById('finalScores');
+                scoresDiv.innerHTML = players.map(p => `
+                    <div style="margin: 10px; font-size: 24px; color: ${p.color}">
+                        ${p.name}: ${p.score} pairs
+                    </div>
+                `).join('');
+            }, 1000);
+        }
+
+        let lastTime = 0;
+        function animate(currentTime) {
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            cards.forEach(card => {
+                card.update(deltaTime);
+                card.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            for (let i = cards.length - 1; i >= 0; i--) {
+                if (cards[i].contains(x, y)) {
+                    handleCardClick(cards[i]);
+                    break;
+                }
+            }
+        });
+
+        function startGame(numPlayers) {
+            document.getElementById('menuScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.remove('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            initGame(numPlayers);
+        }
+
+        function returnToMenu() {
+            document.getElementById('menuScreen').classList.remove('hidden');
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            gameActive = false;
+        }
+
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>
