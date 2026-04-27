@@ -67,37 +67,6 @@
             font-size: 12px; color: var(--muted); letter-spacing: 1px;
         }
 
-        .volume-control {
-            display: inline-flex; align-items: center; gap: 10px; margin-top: 16px;
-            background: var(--surface); border: 1px solid var(--border-bright);
-            border-radius: 8px; padding: 8px 16px; font-family: 'Space Mono', monospace;
-            font-size: 11px; color: var(--muted); letter-spacing: 1px; user-select: none;
-        }
-
-        .volume-icon {
-            font-size: 14px; min-width: 18px; text-align: center;
-            cursor: pointer; transition: color 0.2s;
-        }
-        .volume-icon:hover { color: var(--text); }
-
-        .volume-slider {
-            -webkit-appearance: none; appearance: none; width: 100px; height: 4px;
-            background: var(--border-bright); border-radius: 2px; outline: none;
-            cursor: pointer; transition: background 0.2s;
-        }
-        .volume-slider::-webkit-slider-thumb {
-            -webkit-appearance: none; appearance: none; width: 14px; height: 14px;
-            border-radius: 50%; background: var(--accent-shuffle); cursor: pointer;
-            box-shadow: 0 0 6px rgba(232, 146, 90, 0.5); transition: box-shadow 0.2s;
-        }
-        .volume-slider::-webkit-slider-thumb:hover { box-shadow: 0 0 12px rgba(232, 146, 90, 0.8); }
-        .volume-slider::-moz-range-thumb {
-            width: 14px; height: 14px; border-radius: 50%;
-            background: var(--accent-shuffle); cursor: pointer; border: none;
-        }
-
-        .volume-label { min-width: 30px; text-align: right; color: var(--muted); font-size: 10px; }
-
         .games-grid {
             display: grid; grid-template-columns: 1fr 1fr;
             gap: 24px; width: 100%; max-width: 900px;
@@ -232,13 +201,6 @@
         <div class="header-eyebrow">Select Your Game</div>
         <h1 class="header-title">Memory Match<br>Lobby</h1>
         <div class="header-sub">// Two games. One obsession.</div>
-
-        <div class="volume-control">
-            <span class="volume-icon" id="volIcon" onclick="toggleMute()" title="Click to mute">🔊</span>
-            <input type="range" class="volume-slider" id="volumeSlider"
-                min="0" max="100" value="65" oninput="setVolume(this.value)">
-            <span class="volume-label" id="volLabel">65%</span>
-        </div>
     </div>
 
     <div class="games-grid">
@@ -406,9 +368,6 @@ function setVolume(pct) {
     document.getElementById('volLabel').textContent = Math.round(pct) + '%';
     updateVolIcon();
 
-    // Apply to lobby audio engine
-    if (window.LobbyAudio) LobbyAudio.setVolume(_currentVolume);
-
     // ── Apply to active game iframe ──
     const frame = document.getElementById('gameFrame');
     if (frame && frame.contentWindow) {
@@ -431,7 +390,6 @@ function toggleMute() {
         document.getElementById('volLabel').textContent = '0%';
     }
     updateVolIcon();
-    if (window.LobbyAudio) LobbyAudio.setVolume(_currentVolume);
 
     // ── Apply mute/unmute to active game iframe too ──
     const frame = document.getElementById('gameFrame');
@@ -454,9 +412,6 @@ function launchGame(id) {
     document.getElementById('overlayTitle').textContent = titles[id];
     document.getElementById('overlayTag').textContent   = tags[id];
 
-    // Stop lobby music — game has its own audio
-    if (window.LobbyAudio) LobbyAudio.stopMusic();
-
     document.getElementById('gameOverlay').classList.add('active');
 
     const frame = document.getElementById('gameFrame');
@@ -469,32 +424,27 @@ function launchGame(id) {
     // ── Send current volume to game as soon as it loads ──
     frame.onload = () => {
         frame.contentWindow.postMessage({ type: 'volume', value: _currentVolume }, '*');
-        
+
         // Inject comprehensive audio stopping functionality
         try {
             const stopScript = `
-                // Collect all audio contexts that might exist in the game
                 window.getAllAudioContexts = function() {
                     const contexts = [];
-                    
-                    // Check common variable names used in audio games
                     const candidates = ['ctx', 'context', 'audioCtx', 'audioContext', 'GameAudio'];
                     for (const name of candidates) {
                         if (window[name]) {
                             if (window[name].close && typeof window[name].close === 'function') {
                                 contexts.push(window[name]);
                             }
-                            // Check if it's an object with ctx or context property
                             if (window[name].ctx) contexts.push(window[name].ctx);
                             if (window[name].context) contexts.push(window[name].context);
                         }
                     }
                     return contexts;
                 };
-                
+
                 window.stopAllAudio = function() {
                     try {
-                        // Method 1: Stop GameAudio if it exists
                         if (window.GameAudio) {
                             if (typeof window.GameAudio.stopMusic === 'function') {
                                 window.GameAudio.stopMusic();
@@ -503,18 +453,12 @@ function launchGame(id) {
                                 window.GameAudio.stopAllAudio();
                             }
                         }
-                        
-                        // Method 2: Find and close all audio contexts
                         const contexts = window.getAllAudioContexts();
                         for (const ctx of contexts) {
                             if (ctx && ctx.state !== 'closed') {
-                                try {
-                                    if (ctx.close) ctx.close();
-                                } catch (e) {}
+                                try { if (ctx.close) ctx.close(); } catch (e) {}
                             }
                         }
-                        
-                        // Method 3: Stop all HTML5 audio elements
                         document.querySelectorAll('audio, video').forEach(el => {
                             try { el.pause(); el.currentTime = 0; } catch (e) {}
                         });
@@ -522,8 +466,7 @@ function launchGame(id) {
                         console.error('Error stopping audio:', e);
                     }
                 };
-                
-                // Listen for stop message from lobby
+
                 window.addEventListener('message', (e) => {
                     if (e.data && e.data.type === 'stopAllAudio') {
                         window.stopAllAudio();
@@ -537,27 +480,21 @@ function launchGame(id) {
 
 function closeLaunch() {
     const frame = document.getElementById('gameFrame');
-    frame.onload = null; // clear handler
-    
-    // ─── Stop all audio in the game iframe ───
+    frame.onload = null;
+
     if (frame.contentWindow) {
         try {
-            // Send stop message to game audio engines
             frame.contentWindow.postMessage({ type: 'stopAllAudio' }, '*');
-            
-            // Also try to stop any GameAudio object if it exists
             if (frame.contentWindow.GameAudio && typeof frame.contentWindow.GameAudio.stopAllAudio === 'function') {
                 frame.contentWindow.GameAudio.stopAllAudio();
             }
         } catch (e) { /* frame might be unloaded */ }
     }
-    
-    // Small delay to let the stop message be processed
+
     setTimeout(() => {
         frame.src = 'about:blank';
         if (frame._blobUrl) { URL.revokeObjectURL(frame._blobUrl); frame._blobUrl = null; }
         document.getElementById('gameOverlay').classList.remove('active');
-        if (window.LobbyAudio) LobbyAudio.resume();
     }, 100);
 }
 
@@ -576,156 +513,8 @@ const KINETIC_B64 = 'PCFET0NUWVBFIGh0bWw+DQo8aHRtbCBsYW5nPSJlbiI+DQo8aGVhZD4NCiA
 </script>
 
 <script>
-// ═══════════════════════════════════════════════════════
-//  LOBBY AUDIO ENGINE
-//  Dark ambient drone + shimmering pads
-//  Exposes: resume(), stopMusic(), setVolume(0..1)
-// ═══════════════════════════════════════════════════════
-const LobbyAudio = (() => {
-    let ctx, masterGain, musicGain, sfxGain;
-    let droneNodes = [];
-    let started = false;
-
-    function init() {
-        if (ctx) return;
-        ctx = new (window.AudioContext || window.webkitAudioContext)();
-        masterGain = ctx.createGain(); masterGain.gain.value = _currentVolume;
-        musicGain  = ctx.createGain(); musicGain.gain.value = 1.0;
-        sfxGain    = ctx.createGain(); sfxGain.gain.value = 1.0;
-        musicGain.connect(masterGain);
-        sfxGain.connect(masterGain);
-        masterGain.connect(ctx.destination);
-    }
-
-    function makeReverb(dur=2.0, decay=2.0) {
-        const len = ctx.sampleRate * dur;
-        const buf = ctx.createBuffer(2, len, ctx.sampleRate);
-        for (let ch=0; ch<2; ch++) {
-            const d = buf.getChannelData(ch);
-            for (let i=0; i<len; i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/len, decay);
-        }
-        const cv = ctx.createConvolver(); cv.buffer = buf; return cv;
-    }
-
-    function startAmbience() {
-        if (started) return;
-        started = true;
-
-        const reverb = makeReverb(3.0, 2.5);
-        const revGain = ctx.createGain(); revGain.gain.value = 0.4;
-        reverb.connect(revGain); revGain.connect(musicGain);
-
-        const droneFreqs = [73.4, 110, 146.8, 174.6, 220];
-        droneFreqs.forEach((freq, i) => {
-            const osc = ctx.createOscillator();
-            const g   = ctx.createGain();
-            osc.type = i % 2 === 0 ? 'sawtooth' : 'sine';
-            osc.frequency.value = freq;
-            osc.detune.value = (Math.random()-0.5) * 8;
-            g.gain.value = 0;
-            osc.connect(g); g.connect(musicGain); g.connect(reverb);
-            osc.start();
-            g.gain.setTargetAtTime(i < 2 ? 0.06 : 0.03, ctx.currentTime + i * 0.8, 2.0);
-            droneNodes.push({ osc, g });
-        });
-
-        const shimFreqs = [880, 1108.7, 1320, 1760];
-        shimFreqs.forEach((freq, i) => {
-            const osc  = ctx.createOscillator();
-            const lfo  = ctx.createOscillator();
-            const lfoG = ctx.createGain();
-            const g    = ctx.createGain();
-            osc.type = 'sine'; osc.frequency.value = freq;
-            lfo.type = 'sine'; lfo.frequency.value = 0.07 + i * 0.03;
-            lfoG.gain.value = freq * 0.003;
-            lfo.connect(lfoG); lfoG.connect(osc.frequency);
-            g.gain.value = 0;
-            osc.connect(g); g.connect(reverb);
-            osc.start(); lfo.start();
-            g.gain.setTargetAtTime(0.012, ctx.currentTime + 3 + i * 1.2, 3.0);
-            droneNodes.push({ osc, g });
-        });
-
-        const breathLFO  = ctx.createOscillator();
-        const breathGain = ctx.createGain();
-        breathLFO.type = 'sine'; breathLFO.frequency.value = 0.04;
-        breathGain.gain.value = 0.08;
-        breathLFO.connect(breathGain); breathGain.connect(musicGain.gain);
-        breathLFO.start();
-        droneNodes.push({ osc: breathLFO });
-    }
-
-    function stopMusic() {
-        droneNodes.forEach(n => {
-            if (n.g) n.g.gain.setTargetAtTime(0, ctx ? ctx.currentTime : 0, 0.4);
-            if (n.osc) { try { n.osc.stop((ctx ? ctx.currentTime : 0) + 1.2); } catch(e) {} }
-        });
-        droneNodes = [];
-        started = false;
-    }
-
-    function setVolume(vol) {
-        if (masterGain) {
-            masterGain.gain.setTargetAtTime(vol, ctx.currentTime, 0.05);
-        }
-        _currentVolume = vol;
-    }
-
-    function sfxHover() {
-        if (!ctx) return;
-        const o = ctx.createOscillator(); const g = ctx.createGain();
-        o.type = 'sine'; o.frequency.value = 880;
-        o.frequency.setTargetAtTime(1100, ctx.currentTime, 0.05);
-        g.gain.value = 0.05; g.gain.setTargetAtTime(0, ctx.currentTime + 0.04, 0.03);
-        o.connect(g); g.connect(sfxGain); o.start(); o.stop(ctx.currentTime + 0.12);
-    }
-
-    function sfxLaunch() {
-        if (!ctx) return;
-        const o = ctx.createOscillator(); const g = ctx.createGain();
-        o.type = 'sawtooth'; o.frequency.value = 200;
-        o.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.3);
-        g.gain.value = 0.15; g.gain.setTargetAtTime(0, ctx.currentTime + 0.2, 0.08);
-        const filt = ctx.createBiquadFilter();
-        filt.type = 'lowpass'; filt.frequency.value = 2000;
-        o.connect(filt); filt.connect(g); g.connect(sfxGain);
-        o.start(); o.stop(ctx.currentTime + 0.5);
-    }
-
-    function sfxBack() {
-        if (!ctx) return;
-        const o = ctx.createOscillator(); const g = ctx.createGain();
-        o.type = 'sine'; o.frequency.value = 600;
-        o.frequency.exponentialRampToValueAtTime(250, ctx.currentTime + 0.2);
-        g.gain.value = 0.12; g.gain.setTargetAtTime(0, ctx.currentTime + 0.15, 0.05);
-        o.connect(g); g.connect(sfxGain); o.start(); o.stop(ctx.currentTime + 0.3);
-    }
-
-    function resume() {
-        init();
-        if (ctx.state === 'suspended') ctx.resume();
-        if (masterGain) masterGain.gain.value = _currentVolume;
-        startAmbience();
-    }
-
-    return { resume, stopMusic, setVolume, sfxHover, sfxLaunch, sfxBack };
-})();
-
-// ─── Attach lobby events ─────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    document.body.addEventListener('click',   () => LobbyAudio.resume(), { once: true });
-    document.body.addEventListener('keydown', () => LobbyAudio.resume(), { once: true });
-
-    document.querySelectorAll('.game-card').forEach(card => {
-        card.addEventListener('mouseenter', () => { LobbyAudio.resume(); LobbyAudio.sfxHover(); });
-    });
-
-    document.querySelectorAll('.play-btn').forEach(btn => {
-        btn.addEventListener('mouseenter', () => LobbyAudio.sfxHover());
-        btn.addEventListener('click', () => LobbyAudio.sfxLaunch());
-    });
-
-    document.querySelector('.back-btn')?.addEventListener('click', () => LobbyAudio.sfxBack());
+    // No lobby audio — volume control will live in the game topbar (Step 2)
 });
 </script>
 
