@@ -24,7 +24,7 @@ A solo, level-based memory challenge. Numbered squares bounce around the screen 
 This project runs entirely in the browser — no installation or build step required.
 
 1. **Clone or download** the repository to your local machine.
-2. Open `index.html` (the lobby file) in any modern web browser (Chrome, Firefox, Edge, Safari).
+2. Open `game-lobby.html` in any modern web browser (Chrome, Firefox, Edge, Safari).
 3. The lobby will load, displaying both game cards. Click **▶ PLAY NOW** on either card to launch that game.
 
 > **Note:** An internet connection is required on first load for Google Fonts (`Space Mono` and `Syne`) to render correctly. The games themselves run fully offline once fonts are cached.
@@ -38,8 +38,6 @@ This project runs entirely in the browser — no installation or build step requ
 |---|---|
 | Launch a game | Click the game card or the **▶ PLAY NOW** button |
 | Return to lobby | Click the **← LOBBY** button in the top bar |
-| Adjust volume | Drag the volume slider in the top bar |
-| Mute / Unmute | Click the speaker icon 🔊 in the top bar |
 
 ### Game 01 — Shuffling Memory Match
 | Action | Control |
@@ -48,6 +46,8 @@ This project runs entirely in the browser — no installation or build step requ
 | Pause / Resume | Click the **Pause** button |
 | Return to menu | Click the **Back to Menu** button |
 | View instructions | Click **How to Play** on the main menu |
+| Adjust volume | Drag the volume slider in the top bar |
+| Mute / Unmute | Click the speaker icon 🔊 in the top bar |
 
 ### Game 02 — Qinetika
 | Action | Control |
@@ -56,6 +56,8 @@ This project runs entirely in the browser — no installation or build step requ
 | Use a skill (recall phase only) | Press keys **1–6** or click an inventory slot |
 | Pause / Resume | Click the **Pause** button |
 | Return to menu | Click the **Menu** button |
+| Adjust volume | Drag the volume slider in the top bar |
+| Mute / Unmute | Click the speaker icon 🔊 in the top bar |
 
 #### Qinetika Skill Keybinds
 | Key | Skill |
@@ -71,17 +73,9 @@ This project runs entirely in the browser — no installation or build step requ
 
 ## Screenshots
 
-### Memory Match Lobby
-![Memory Match Lobby](Screenshot_2026-04-27_083516.png)
-
-
-### Shuffling Memory Match — Gameplay
-![Shuffling Memory Match Gameplay](Screenshot_2026-04-27_083535.png)
-
-
-### Qinetika — Memorize Phase
-![Qinetika Memorize Phase](Screenshot_2026-04-27_083543.png)
-
+![Lobby](Screenshots/Lobby.png)
+![Shuffling Memory Match](Screenshots/ShuffleGame.png)
+![Qinetika](Screenshots/Qinetika.png)
 
 ---
 
