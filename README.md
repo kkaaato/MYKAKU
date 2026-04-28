@@ -24,10 +24,12 @@ A solo, level-based memory challenge. Numbered squares bounce around the screen 
 This project runs entirely in the browser — no installation or build step required.
 
 1. **Clone or download** the repository to your local machine.
-2. Open `game-lobby.html` in any modern web browser (Chrome, Firefox, Edge, Safari).
-3. The lobby will load, displaying both game cards. Click **▶ PLAY NOW** on either card to launch that game.
+2. Open `MYKAKU/index.html` in any modern web browser (Chrome, Firefox, Edge, Safari). This file is the lobby (game launcher) that embeds the two games.
+3. The lobby will load, displaying both game cards and live canvas previews. Click **▶ PLAY NOW** on either card to launch that game in the embedded iframe.
 
-> **Note:** An internet connection is required on first load for Google Fonts (`Space Mono` and `Syne`) to render correctly. The games themselves run fully offline once fonts are cached.
+Note: The lobby embeds each game as a Base64-encoded HTML string and decodes it at runtime to create a Blob URL for the iframe. If you edit either game's source file and want to update the embedded string, see the "Re-encoding embedded games" section below.
+
+> **Note:** An internet connection is required on first load for Google Fonts (`Space Mono` and `Syne`). The games run offline once fonts are cached.
 
 ---
 
@@ -84,3 +86,22 @@ This project runs entirely in the browser — no installation or build step requ
 - Both games share the same ambient music system built with the Web Audio API — no external audio files are needed.
 - All game logic, rendering, and audio are written in vanilla HTML, CSS, and JavaScript with no frameworks or dependencies.
 - The lobby embeds both games as Base64-encoded HTML, loaded into iframes on demand.
+
+## Re-encoding embedded games
+
+- If you edit `Shuffle_game.html` or `kinetic_game.html` and want the lobby to use the updated version, re-encode the edited file to Base64 and paste the new string into `MYKAKU/index.html` where the `SHUFFLE_B64` and `KINETIC_B64` constants are defined.
+- Example Python encode command (from project root):
+
+```python
+import base64
+print(base64.b64encode(open('Shuffle_game.html','rb').read()).decode('ascii'))
+```
+
+- To decode the embedded string for verification use (example):
+
+```python
+import base64
+print(base64.b64decode(SHUFFLE_B64).decode('utf-8'))
+```
+
+- Tip: Use `repr()` or `print(repr(b64))` when pasting the encoded string into JavaScript so quotes and escapes are preserved.
