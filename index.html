@@ -160,6 +160,16 @@
             margin-top: 20px; font-family: 'Space Mono', monospace; font-size: 11px;
             color: var(--muted); letter-spacing: 1px; opacity: 0;
             animation: fadeSlideIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.6s forwards;
+            text-align: center; line-height: 1.8;
+        }
+
+        .footer .made-by {
+            display: block;
+            margin-top: 6px;
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: var(--muted);
+            opacity: 0.7;
         }
 
         @keyframes fadeSlideIn { to { opacity: 1; transform: translateY(0); } }
@@ -243,7 +253,10 @@
         </div>
     </div>
 
-    <div class="footer">© Memory Match Lobby &nbsp;·&nbsp; Choose wisely</div>
+    <div class="footer">
+        © Memory Match Lobby &nbsp;·&nbsp; Choose wisely
+        <span class="made-by">MADE BY TEAM MYKAKU</span>
+    </div>
 </div>
 
 <div class="game-overlay" id="gameOverlay">
@@ -368,7 +381,6 @@ function launchGame(id) {
     const html  = b64ToHtml(id === 'shuffle' ? SHUFFLE_B64 : KINETIC_B64);
     const blob  = new Blob([html], { type: 'text/html' });
 
-    // Revoke previous blob URL before creating a new one
     if (frame._blobUrl) {
         URL.revokeObjectURL(frame._blobUrl);
         frame._blobUrl = null;
@@ -381,14 +393,12 @@ function launchGame(id) {
 function closeLaunch() {
     const frame = document.getElementById('gameFrame');
 
-    // Tell the game to stop all audio via postMessage (safe, no eval)
     if (frame.contentWindow) {
         try {
             frame.contentWindow.postMessage({ type: 'stopAllAudio' }, '*');
         } catch (e) { /* frame may already be unloaded */ }
     }
 
-    // Small delay to let the message land before nuking the frame
     setTimeout(() => {
         frame.src = 'about:blank';
         if (frame._blobUrl) {
